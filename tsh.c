@@ -189,22 +189,23 @@ void eval(char *cmdline)
         pid_t forkPID = fork();
         if (forkPID <= -1) {
             printf("Unsuccessful fork");
-        } else if (forkPID == 0) {
-//            printf("In child process\n"); //DEBUG
+        } else if (forkPID == 0) { //CHILD PROCESS
             char *const argToRun[] = {notBuiltIn[0], notBuiltIn[1], NULL}; //not sustainable as is
             setpgid(0, 0);
             execv(notBuiltIn[0], argToRun); //was argv[1]
-            printf("\nDone running %s\n", notBuiltIn[0]); //DEBUG
-            //deletejob(jobs, forkPID); //Cleaning up job
+            //NEVER REACHING HERE BECAUSE EXECV DOES NOT RETURN
             exit(0);
         } else {
-//            printf("%s\n", cmdline); //DEBUG
             addjob(jobs, forkPID, FG, cmdline);
             int childStatus;
-            waitpid(forkPID, &childStatus, WUNTRACED);
+            //waitpid(forkPID, &childStatus, WUNTRACED);
+            waitpid(forkPID, &childStatus, WSTOPPED);
+            printf("Done with child (%d) status= %d | in eval:else\n", forkPID, childStatus);
+            if (childStatus == 0) {
+                printf("(2)Cleaning up child (%d) status=%d\n", forkPID, childStatus);
+                deletejob(jobs, forkPID); //Cleaning up job
+            }
         }
-        //FORK FIRST
-        //execv command to run not built-in process
     }
     return;
 }
@@ -260,6 +261,8 @@ int parseline(const char *cmdline, char **argv)
 
     /* should the job run in the background? */
     if ((bg = (*argv[argc-1] == '&')) != 0) {
+        //RUN IN BACKGROUND
+        printf("whose id?(%d)\n", getpid());
         argv[--argc] = NULL;
     }
     return bg;
@@ -291,36 +294,38 @@ void do_bgfg(char **argv)
 {
     if (argv[1] == NULL) {
         printf("Need to supply pid or %%jid");
-    } else if (argv[1][0] == '%') {
-        getjobjid(jobs, atoi(argv[1]+1)); //Need to increment pointer by 1 to ignore '%'
-    } else {
-        int id = atoi(argv[1]);
+    } 
+    else {
+        int id;
+        struct job_t *fgj;
+        struct job_t *bgj;
+        if (argv[1][0] == '%') {
+            id = atoi(argv[1]+1);
+            fgj = getjobjid(jobs, id);
+            bgj = getjobjid(jobs, id);
+        }
+        if (argv[1][0] != '%') {
+            id = atoi(argv[1]);
+            pid_t fgPID = id;
+            pid_t bgPID = id;
+            fgj = getjobpid(jobs, fgPID);
+            bgj = getjobpid(jobs, bgPID);
+        }
         if (strcmp(argv[0], "fg") == 0) {
            // getjobpid(jobs, atoi(argv[1]))->state = FG; //Setting the state to be a FG process
            // printf("%d\n", getjobpid(jobs, atoi(jobs))->state);
            // waitfg(getjobpid(jobs, atoi(jobs))); //Waiting on the new foreground process to terminate
-//            waitfg(getjobpid(jobs, argv[1])); //DEBUG
-            struct job_t *fgj;
-            if (id > 0 && id <= MAXJOBS){ //if jid is given
-                fgj = getjobjid(jobs, id);
-            }
-            else if (id > MAXJOBS) { //if pid is given
-                pid_t fgPID = id;
-                fgj = getjobpid(jobs, fgPID);
-            }
+           // waitfg(getjobpid(jobs, argv[1])); //DEBUG
+            
             kill(fgj->pid, SIGCONT); //Need to RESUME process -> different from changing state (could use -pid to reach entire group)
             fgj->state = FG; //Are there special circumstances for which we would need to check current state?
             waitfg(fgj->pid);
-        } else if (strcmp(argv[0], "bg") == 0) {
-            struct job_t *bgj;
-            if (id > 0 && id <= MAXJOBS){ //if jid is given
-                bgj = getjobjid(jobs, id);
-            }
-            else if (id < MAXJOBS) {
-                pid_t bgPID = id;
-                bgj = getjobpid(jobs, bgPID);
-            }
+
+            deletejob(jobs, fgj->pid);
+        } else if (strcmp(argv[0], "bg") == 0) { 
+            printf("About to continue (%d)\n", bgj->pid);
             kill(bgj->pid, SIGCONT);
+            waitpid(bgj->pid, NULL, WCONTINUED);
             bgj->state = BG;
         }
     }
@@ -352,9 +357,18 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-//    while(waitpid(-1, 0, WNOHANG) > 0);
-//    a
-//    return;
+    int exitStatus;
+    if (WIFEXITED(exitStatus) == 0) {
+        printf("Child should have exited\n");
+    }
+    while(waitpid((pid_t)(-1), 0, WNOHANG) > 0) {
+        for (int i = 0; i < MAXJOBS; i++) {
+            if (jobs[i].state == BG) {
+                deletejob(jobs, jobs[i].pid); //Cleaning up jobs that have terminated naturally
+            }
+        }
+    }
+    return;
 }
 
 /* 
