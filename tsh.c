@@ -294,21 +294,32 @@ void do_bgfg(char **argv)
     } else if (argv[1][0] == '%') {
         getjobjid(jobs, atoi(argv[1]+1)); //Need to increment pointer by 1 to ignore '%'
     } else {
+        int id = atoi(argv[1]);
         if (strcmp(argv[0], "fg") == 0) {
            // getjobpid(jobs, atoi(argv[1]))->state = FG; //Setting the state to be a FG process
            // printf("%d\n", getjobpid(jobs, atoi(jobs))->state);
            // waitfg(getjobpid(jobs, atoi(jobs))); //Waiting on the new foreground process to terminate
 //            waitfg(getjobpid(jobs, argv[1])); //DEBUG
-            pid_t fgPID = atoi(argv[1]);
             struct job_t *fgj;
-            fgj = getjobpid(jobs, fgPID);
+            if (id > 0 && id <= MAXJOBS){ //if jid is given
+                fgj = getjobjid(jobs, id);
+            }
+            else if (id > MAXJOBS) { //if pid is given
+                pid_t fgPID = id;
+                fgj = getjobpid(jobs, fgPID);
+            }
             kill(fgj->pid, SIGCONT); //Need to RESUME process -> different from changing state (could use -pid to reach entire group)
             fgj->state = FG; //Are there special circumstances for which we would need to check current state?
             waitfg(fgj->pid);
         } else if (strcmp(argv[0], "bg") == 0) {
-            pid_t bgPID = atoi(argv[1]);
             struct job_t *bgj;
-            bgj = getjobpid(jobs, bgPID);
+            if (id > 0 && id <= MAXJOBS){ //if jid is given
+                bgj = getjobjid(jobs, id);
+            }
+            else if (id < MAXJOBS) {
+                pid_t bgPID = id;
+                bgj = getjobpid(jobs, bgPID);
+            }
             kill(bgj->pid, SIGCONT);
             bgj->state = BG;
         }
@@ -342,8 +353,8 @@ void waitfg(pid_t pid)
 void sigchld_handler(int sig) 
 {
 //    while(waitpid(-1, 0, WNOHANG) > 0);
-    a
-    return;
+//    a
+//    return;
 }
 
 /* 
