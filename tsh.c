@@ -186,24 +186,29 @@ void eval(char *cmdline)
     if (argCount == 0) { //Implemented to allow 'enters'
         return;
     } else if (!builtin_cmd(argv)) {
-        pid_t forkPID = fork();
-        if (forkPID <= -1) {
-            printf("Unsuccessful fork");
-        } else if (forkPID == 0) { //CHILD PROCESS
-            char *const argToRun[] = {notBuiltIn[0], notBuiltIn[1], NULL}; //not sustainable as is
-            setpgid(0, 0);
-            execv(notBuiltIn[0], argToRun); //was argv[1]
-            //NEVER REACHING HERE BECAUSE EXECV DOES NOT RETURN
-            exit(0);
-        } else {
-            addjob(jobs, forkPID, FG, cmdline);
-            int childStatus;
-            //waitpid(forkPID, &childStatus, WUNTRACED);
-            waitpid(forkPID, &childStatus, WSTOPPED);
-            printf("Done with child (%d) status= %d | in eval:else\n", forkPID, childStatus);
-            if (childStatus == 0) {
-                printf("(2)Cleaning up child (%d) status=%d\n", forkPID, childStatus);
-                deletejob(jobs, forkPID); //Cleaning up job
+        if (access(*argvCopy2, F_OK) != 0){
+            printf("%s: Command not found.\n", *argvCopy2);
+        }
+        else {
+            pid_t forkPID = fork();
+            if (forkPID <= -1) {
+                printf("Unsuccessful fork");
+            } else if (forkPID == 0) { //CHILD PROCESS
+                char *const argToRun[] = {notBuiltIn[0], notBuiltIn[1], NULL}; //not sustainable as is
+                setpgid(0, 0);
+                execv(notBuiltIn[0], argToRun); //was argv[1]
+                //NEVER REACHING HERE BECAUSE EXECV DOES NOT RETURN
+                exit(0);
+            } else {
+                addjob(jobs, forkPID, FG, cmdline);
+                int childStatus;
+                //waitpid(forkPID, &childStatus, WUNTRACED);
+                waitpid(forkPID, &childStatus, WSTOPPED);
+                printf("Done with child (%d) status= %d | in eval:else\n", forkPID, childStatus);
+                if (childStatus == 0) {
+                    printf("(2)Cleaning up child (%d) status=%d\n", forkPID, childStatus);
+                    deletejob(jobs, forkPID); //Cleaning up job
+                }
             }
         }
     }
