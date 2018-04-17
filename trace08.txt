@@ -10,8 +10,5 @@
 SLEEP 2
 TSTP
 
-/bin/echo -e tsh> jobs
+/bin/echo tsh> jobs
 jobs
-
-fg %2
-INT

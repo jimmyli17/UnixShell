@@ -13,6 +13,5 @@ jobs
 /bin/echo tsh> /bin/ps a
 /bin/ps a
 
-fg %1
-INT
+
 

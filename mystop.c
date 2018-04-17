@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 	
     pid = getpid(); 
 
-    if (kill(pid, SIGTSTP) < 0)
+    if (kill(-pid, SIGTSTP) < 0)
        fprintf(stderr, "kill (tstp) error");
 
     exit(0);
