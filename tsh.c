@@ -186,7 +186,7 @@ void eval(char *cmdline)
     if (argCount == 0) { //Implemented to allow 'enters'
         return;
     } else if (!builtin_cmd(argv)) {
-        if (access(*argvCopy2, F_OK) != 0){
+        if (access(*argvCopy2, F_OK) != 0){ //If input is not a valid shell command
             printf("%s: Command not found.\n", *argvCopy2);
         }
         else {
@@ -306,15 +306,27 @@ void do_bgfg(char **argv)
         struct job_t *bgj;
         if (argv[1][0] == '%') {
             id = atoi(argv[1]+1);
-            fgj = getjobjid(jobs, id);
-            bgj = getjobjid(jobs, id);
+            if (getjobjid(jobs, id) != NULL){
+                fgj = getjobjid(jobs, id);
+                bgj = getjobjid(jobs, id);
+            }
+            else{
+                printf("%%%d: No such job\n", id);
+                return;
+            }
         }
         if (argv[1][0] != '%') {
             id = atoi(argv[1]);
-            pid_t fgPID = id;
-            pid_t bgPID = id;
-            fgj = getjobpid(jobs, fgPID);
-            bgj = getjobpid(jobs, bgPID);
+            if (getjobpid(jobs, id) != NULL){
+                pid_t fgPID = id;
+                pid_t bgPID = id;
+                fgj = getjobpid(jobs, fgPID);
+                bgj = getjobpid(jobs, bgPID);
+            }
+            else {
+                printf("(%d): No such process\n", id);
+                return;
+            }
         }
         if (strcmp(argv[0], "fg") == 0) {
            // getjobpid(jobs, atoi(argv[1]))->state = FG; //Setting the state to be a FG process
